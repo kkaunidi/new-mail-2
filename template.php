@@ -1,108 +1,204 @@
-<?php
-/**
- * Основной шаблон страницы
- * Стили вынесены в отдельный файл styles.css
- */
+<?if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED!==true)die();
 
-$pageTitle = "Мой сайт";
-$currentYear = date("Y");
+// Подключение внешних стилей
+$arComponent = $this->__component;
+$templateFolder = $arComponent->GetPath();
+$this->addExternalCss($templateFolder . "/template_styles.css");
+
+if ($arResult["ShowReady"]=="Y" || $arResult["ShowDelay"]=="Y" || $arResult["ShowSubscribe"]=="Y" || $arResult["ShowNotAvail"]=="Y")
+{
+	foreach ($arResult["GRID"]["HEADERS"] as $id => $arHeader):
+		$arHeader["name"] = (isset($arHeader["name"]) ? (string)$arHeader["name"] : '');
+		if ($arHeader["name"] == '')
+		{
+			$arResult["GRID"]["HEADERS"][$id]["name"] = GetMessage("SALE_".$arHeader["id"]);
+			if($arResult["GRID"]["HEADERS"][$id]["name"] == '')
+				$arResult["GRID"]["HEADERS"][$id]["name"] = GetMessage("SALE_".str_replace("_FORMATED", "", $arHeader["id"]));
+		}
+	endforeach;
+
+	// ==========================================
+	// Товары, готовые к покупке (ShowReady)
+	// ==========================================
+	if ($arResult["ShowReady"]=="Y")
+	{
+		foreach ($arResult["ITEMS"]["AnDelCanBuy"] as &$v)
+		{
+			$productName = isset($v["NAME"]) ? $v["NAME"] : '';
+			$detailUrl   = isset($v["DETAIL_PAGE_URL"]) ? $v["DETAIL_PAGE_URL"] : '';
+			$pictureSrc  = '';
+
+			if (!empty($v["PREVIEW_PICTURE_SRC"]))
+				$pictureSrc = $v["PREVIEW_PICTURE_SRC"];
+			elseif (!empty($v["DETAIL_PICTURE_SRC"]))
+				$pictureSrc = $v["DETAIL_PICTURE_SRC"];
+			elseif (!empty($v["PICTURE_SRC"]))
+				$pictureSrc = $v["PICTURE_SRC"];
+
+			$priceValue = '';
+			if (!empty($v["SUM_FORMATED"]))
+				$priceValue = $v["SUM_FORMATED"];
+			elseif (!empty($v["PRICE_FORMATED"]))
+				$priceValue = $v["PRICE_FORMATED"];
+
+			$basketUrl = '' != $arParams["PATH_TO_BASKET"] ? $arParams["PATH_TO_BASKET"] : '#';
+			$orderUrl  = '' != $arParams["PATH_TO_ORDER"] ? $arParams["PATH_TO_ORDER"] : '#';
+			?>
+			<table width="100%" cellpadding="0" cellspacing="0" class="sbbm-card">
+				<tr>
+					<td class="sbbm-card-cell">
+						<table width="100%" cellpadding="0" cellspacing="0" class="sbbm-card-inner">
+							<tr>
+								<td width="120" class="sbbm-img">
+									<?if ($pictureSrc !== ''):?>
+										<img src="<?=htmlspecialcharsbx($pictureSrc)?>" alt="<?=htmlspecialcharsbx($productName)?>">
+									<?else:?>
+										<img src="https://via.placeholder.com/120x150/f0f0f0/999999?text=<?=rawurlencode($productName)?>" alt="<?=htmlspecialcharsbx($productName)?>">
+									<?endif;?>
+								</td>
+								<td class="sbbm-info">
+									<h3>
+										<?if ($detailUrl !== ''):?>
+											<a href="<?=htmlspecialcharsbx($detailUrl)?>"><?=htmlspecialcharsbx($productName)?></a>
+										<?else:?>
+											<?=htmlspecialcharsbx($productName)?>
+										<?endif;?>
+									</h3>
+									<p class="sbbm-price">Сумма: <br><?=$priceValue?></p>
+									<table class="sbbm-btns" cellpadding="0" cellspacing="0">
+										<tr>
+											<td>
+												<a href="<?=htmlspecialcharsbx($basketUrl)?>" class="sbbm-btn">Изменить количество</a>
+											</td>
+											<td>
+												<a href="<?=htmlspecialcharsbx($orderUrl)?>" class="sbbm-btn">Оформить заказ</a>
+											</td>
+										</tr>
+									</table>
+								</td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+			</table>
+			<?
+		}
+		if (isset($v))
+			unset($v);
+	}
+
+	// ==========================================
+	// Товары, отложенные (ShowDelay)
+	// ==========================================
+	if ($arResult["ShowDelay"]=="Y")
+	{
+		?>
+		<table class="sale_basket_small">
+			<tr><td align="center"><?= GetMessage("TSBS_DELAY") ?></td></tr>
+			<tr><td>
+				<ul>
+				<?foreach ($arResult["ITEMS"]["DelDelCanBuy"] as &$v):?>
+					<li>
+						<?foreach ($arResult["GRID"]["HEADERS"] as $id => $arHeader):?>
+							<?if(isset($v[$arHeader['id']]) && !empty($v[$arHeader['id']])):?>
+								<?if(in_array($arHeader['id'], array("NAME"))):?>
+									<?if ('' != $v["DETAIL_PAGE_URL"]):?>
+										<a href="<?=$v["DETAIL_PAGE_URL"]?>"><b><?=$v[$arHeader['id']]?></b></a><br />
+									<?else:?>
+										<b><?=$v[$arHeader['id']]?></b><br />
+									<?endif;?>
+								<?elseif(in_array($arHeader['id'], array("PRICE_FORMATED"))):?>
+									<?=$arHeader['name']?>:&nbsp;<b><?=$v[$arHeader['id']]?></b><br />
+								<?elseif(in_array($arHeader['id'], ["DETAIL_PICTURE", "PREVIEW_PICTURE"]) && !empty($v[$arHeader['id']."_SRC"])):?>
+									<?=$arHeader['name']?>:&nbsp;<br/><img src="<?=$v[$arHeader['id']."_SRC"]?>"><br/>
+								<?else:?>
+									<?=$arHeader['name']?>:&nbsp;<?=$v[$arHeader['id']]?><br />
+								<?endif;?>
+							<?endif;?>
+						<?endforeach;?>
+					</li>
+				<?endforeach;?>
+				<?if (isset($v)) unset($v);?>
+				</ul>
+			</td></tr>
+		</table>
+		<?
+	}
+
+	// ==========================================
+	// Товары, ожидающие подписки (ShowSubscribe)
+	// ==========================================
+	if ($arResult["ShowSubscribe"]=="Y")
+	{
+		?>
+		<table class="sale_basket_small">
+			<tr><td align="center"><?= GetMessage("TSBS_SUBSCRIBE") ?></td></tr>
+			<tr><td>
+				<ul>
+				<?foreach ($arResult["ITEMS"]["ProdSubscribe"] as &$v):?>
+					<li>
+						<?foreach ($arResult["GRID"]["HEADERS"] as $id => $arHeader):?>
+							<?if(isset($v[$arHeader['id']]) && !empty($v[$arHeader['id']])):?>
+								<?if(in_array($arHeader['id'], array("NAME"))):?>
+									<?if ('' != $v["DETAIL_PAGE_URL"]):?>
+										<a href="<?=$v["DETAIL_PAGE_URL"]?>"><b><?=$v[$arHeader['id']]?></b></a><br />
+									<?else:?>
+										<b><?=$v[$arHeader['id']]?></b><br />
+									<?endif;?>
+								<?elseif(in_array($arHeader['id'], array("PRICE_FORMATED"))):?>
+									<?=$arHeader['name']?>:&nbsp;<b><?=$v[$arHeader['id']]?></b><br />
+								<?elseif(in_array($arHeader['id'], ["DETAIL_PICTURE", "PREVIEW_PICTURE"]) && !empty($v[$arHeader['id']."_SRC"])):?>
+									<?=$arHeader['name']?>:&nbsp;<br/><img src="<?=$v[$arHeader['id']."_SRC"]?>"><br/>
+								<?else:?>
+									<?=$arHeader['name']?>:&nbsp;<?=$v[$arHeader['id']]?><br />
+								<?endif;?>
+							<?endif;?>
+						<?endforeach;?>
+					</li>
+				<?endforeach;?>
+				<?if (isset($v)) unset($v);?>
+				</ul>
+			</td></tr>
+		</table>
+		<?
+	}
+
+	// ==========================================
+	// Товары, недоступные для покупки (ShowNotAvail)
+	// ==========================================
+	if ($arResult["ShowNotAvail"]=="Y")
+	{
+		?>
+		<table class="sale_basket_small">
+			<tr><td align="center"><?= GetMessage("TSBS_UNAVAIL") ?></td></tr>
+			<tr><td>
+				<ul>
+				<?foreach ($arResult["ITEMS"]["nAnCanBuy"] as &$v):?>
+					<li>
+						<?foreach ($arResult["GRID"]["HEADERS"] as $id => $arHeader):?>
+							<?if(isset($v[$arHeader['id']]) && !empty($v[$arHeader['id']])):?>
+								<?if(in_array($arHeader['id'], array("NAME"))):?>
+									<?if ('' != $v["DETAIL_PAGE_URL"]):?>
+										<a href="<?=$v["DETAIL_PAGE_URL"]?>"><b><?=$v[$arHeader['id']]?></b></a><br />
+									<?else:?>
+										<b><?=$v[$arHeader['id']]?></b><br />
+									<?endif;?>
+								<?elseif(in_array($arHeader['id'], array("PRICE_FORMATED"))):?>
+									<?=$arHeader['name']?>:&nbsp;<b><?=$v[$arHeader['id']]?></b><br />
+								<?elseif(in_array($arHeader['id'], ["DETAIL_PICTURE", "PREVIEW_PICTURE"]) && !empty($v[$arHeader['id']."_SRC"])):?>
+									<?=$arHeader['name']?>:&nbsp;<br/><img src="<?=$v[$arHeader['id']."_SRC"]?>"><br/>
+								<?else:?>
+									<?=$arHeader['name']?>:&nbsp;<?=$v[$arHeader['id']]?><br />
+								<?endif;?>
+							<?endif;?>
+						<?endforeach;?>
+					</li>
+				<?endforeach;?>
+				<?if (isset($v)) unset($v);?>
+				</ul>
+			</td></tr>
+		</table>
+		<?
+	}
+}
 ?>
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars($pageTitle) ?></title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-
-    <!-- Шапка сайта -->
-    <header class="header">
-        <div class="header__container">
-            <a href="/" class="header__logo">МойСайт</a>
-            <nav class="header__nav">
-                <a href="#home" class="header__nav-link">Главная</a>
-                <a href="#features" class="header__nav-link">Возможности</a>
-                <a href="#about" class="header__nav-link">О нас</a>
-                <a href="#contact" class="header__nav-link">Контакты</a>
-            </nav>
-        </div>
-    </header>
-
-    <!-- Главный баннер -->
-    <section class="hero" id="home">
-        <h1 class="hero__title">Добро пожаловать</h1>
-        <p class="hero__subtitle">Создавайте современные веб-проекты с чистым и структурированным кодом</p>
-        <a href="#features" class="hero__btn">Узнать больше</a>
-    </section>
-
-    <!-- Основной контент -->
-    <main class="main">
-
-        <!-- Секция возможностей -->
-        <section class="section" id="features">
-            <h2 class="section__title">Наши возможности</h2>
-            <div class="cards">
-
-                <article class="card">
-                    <div class="card__icon">⚡</div>
-                    <h3 class="card__title">Быстродействие</h3>
-                    <p class="card__text">Оптимизированный код и минимальное время загрузки для лучшего пользовательского опыта.</p>
-                </article>
-
-                <article class="card">
-                    <div class="card__icon">🎨</div>
-                    <h3 class="card__title">Дизайн</h3>
-                    <p class="card__text">Современный и адаптивный интерфейс, который отлично выглядит на любых устройствах.</p>
-                </article>
-
-                <article class="card">
-                    <div class="card__icon">🔒</div>
-                    <h3 class="card__title">Безопасность</h3>
-                    <p class="card__text">Надёжная защита данных и соблюдение лучших практик информационной безопасности.</p>
-                </article>
-
-            </div>
-        </section>
-
-        <!-- Секция "О нас" -->
-        <section class="section" id="about">
-            <h2 class="section__title">О нас</h2>
-            <div class="cards">
-                <article class="card">
-                    <div class="card__icon">🚀</div>
-                    <h3 class="card__title">Наша миссия</h3>
-                    <p class="card__text">Мы стремимся создавать качественные веб-решения, которые помогают бизнесу расти и развиваться.</p>
-                </article>
-
-                <article class="card">
-                    <div class="card__icon">🤝</div>
-                    <h3 class="card__title">Команда</h3>
-                    <p class="card__text">Опытные специалисты, которые любят своё дело и постоянно совершенствуют свои навыки.</p>
-                </article>
-
-                <article class="card">
-                    <div class="card__icon">💡</div>
-                    <h3 class="card__title">Инновации</h3>
-                    <p class="card__text">Используем современные технологии и подходы для реализации самых амбициозных проектов.</p>
-                </article>
-            </div>
-        </section>
-
-    </main>
-
-    <!-- Подвал сайта -->
-    <footer class="footer" id="contact">
-        <div class="footer__container">
-            <p class="footer__text">&copy; <?= $currentYear ?> МойСайт. Все права защищены.</p>
-            <div class="footer__links">
-                <a href="#" class="footer__link">Политика конфиденциальности</a>
-                <a href="#" class="footer__link">Условия использования</a>
-                <a href="mailto:info@example.com" class="footer__link">info@example.com</a>
-            </div>
-        </div>
-    </footer>
-
-</body>
-</html>
